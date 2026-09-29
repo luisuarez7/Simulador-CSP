@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<!-- saved from url=(0061)blob:https://www.kimi.ai/4f7a85b1-e60f-4078-a70f-b75a2abaf38d -->
+<html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador CSP · Asignación de tareas con Backtracking</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#273549; --line:#334155;
+    --txt:#e2e8f0; --muted:#94a3b8;
+    --ok:#22c55e; --try:#f59e0b; --bad:#ef4444; --sol:#3b82f6; --cur:#a78bfa;
+    --chip:#334155;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:"Segoe UI",system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--txt); min-height:100vh;}
+  header{padding:16px 20px; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;}
+  header h1{font-size:1.15rem; font-weight:700;}
+  header p{color:var(--muted); font-size:.8rem;}
+  .wrap{display:flex; flex-wrap:wrap; gap:14px; padding:14px;}
+  .col{display:flex; flex-direction:column; gap:14px; min-width:290px;}
+  .col.left{flex:1 1 300px;} .col.center{flex:2 1 460px;} .col.right{flex:1 1 320px;}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px;}
+  .card h2{font-size:.82rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:10px;}
+  .person{margin-bottom:10px;}
+  .person .pname{font-weight:600; font-size:.85rem; margin-bottom:5px; display:flex; align-items:center; gap:8px;}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+  .chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{background:var(--chip); border:1px solid var(--line); border-radius:8px; padding:3px 10px; font-size:.8rem; font-family:ui-monospace,monospace; transition:all .25s;}
+  .chip.out{opacity:.28; text-decoration:line-through;}
+  .chip.try{background:rgba(245,158,11,.25); border-color:var(--try); color:#fcd34d;}
+  .chip.ok{background:rgba(34,197,94,.22); border-color:var(--ok); color:#86efac;}
+  .chip.bad{background:rgba(239,68,68,.28); border-color:var(--bad); color:#fca5a5;}
+  .restr{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 9px; border:1px solid var(--line); border-radius:8px; margin-bottom:7px; font-size:.83rem; font-family:ui-monospace,monospace;}
+  .switch{position:relative; width:38px; height:20px; flex:none; cursor:pointer;}
+  .switch input{opacity:0; width:0; height:0;}
+  .slider{position:absolute; inset:0; background:var(--chip); border-radius:20px; transition:.2s;}
+  .slider:before{content:""; position:absolute; width:14px; height:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s;}
+  .switch input:checked + .slider{background:var(--ok);}
+  .switch input:checked + .slider:before{transform:translateX(18px);}
+  .controls{display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+  button{background:var(--panel2); color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font-size:.85rem; cursor:pointer; transition:.15s;}
+  button:hover:not(:disabled){border-color:var(--cur); transform:translateY(-1px);}
+  button:disabled{opacity:.35; cursor:not-allowed;}
+  button.primary{background:var(--cur); border-color:var(--cur); color:#1e1b4b; font-weight:700;}
+  input[type=range]{flex:1; min-width:100px; accent-color:var(--cur);}
+  .prog{height:6px; background:var(--chip); border-radius:4px; overflow:hidden; margin-top:10px;}
+  .prog > div{height:100%; background:var(--cur); width:0%; transition:width .2s;}
+  table.board{width:100%; border-collapse:collapse; font-size:.8rem;}
+  table.board th, table.board td{border:1px solid var(--line); padding:8px 6px; text-align:center;}
+  table.board th{background:var(--panel2); color:var(--muted); font-family:ui-monospace,monospace;}
+  table.board td.person-cell{text-align:left; font-weight:600; white-space:nowrap;}
+  table.board td.person-cell.cur{color:var(--cur);}
+  .st{display:inline-block; min-width:34px; padding:2px 6px; border-radius:6px; font-family:ui-monospace,monospace;}
+  .st.libre{color:var(--txt);}
+  .st.fuera{color:var(--muted); text-decoration:line-through; opacity:.5;}
+  .st.asig{background:rgba(34,197,94,.25); color:#86efac; font-weight:700;}
+  .st.prueba{background:rgba(245,158,11,.28); color:#fcd34d; font-weight:700;}
+  .st.conf{background:rgba(239,68,68,.3); color:#fca5a5; font-weight:700;}
+  .treebox{max-height:340px; overflow:auto; background:var(--panel2); border-radius:8px; border:1px solid var(--line);}
+  svg text{font-family:ui-monospace,monospace; font-size:11px; fill:var(--txt);}
+  .tnode circle{stroke-width:1.5;}
+  .tnode.exploring circle{fill:rgba(167,139,250,.25); stroke:var(--cur);}
+  .tnode.pruned circle{fill:rgba(239,68,68,.2); stroke:var(--bad);}
+  .tnode.dead circle{fill:var(--chip); stroke:var(--muted); opacity:.55;}
+  .tnode.solution circle{fill:rgba(59,130,246,.3); stroke:var(--sol);}
+  .tnode.pending circle{fill:var(--panel); stroke:var(--line); stroke-dasharray:3 3; opacity:.35;}
+  .tedge{stroke:var(--line); stroke-width:1.2; fill:none;}
+  .tedge.no{stroke:var(--bad); stroke-dasharray:4 3;}
+  .tedge.yes{stroke:var(--ok);}
+  #log{max-height:300px; overflow-y:auto; font-size:.78rem; font-family:ui-monospace,monospace; display:flex; flex-direction:column; gap:4px;}
+  .le{padding:5px 8px; border-radius:6px; border-left:3px solid var(--line); background:var(--panel2); color:var(--muted);}
+  .le.try{border-color:var(--try); color:#fcd34d;}
+  .le.prune{border-color:var(--bad); color:#fca5a5;}
+  .le.bt{border-color:#f97316; color:#fdba74;}
+  .le.sol{border-color:var(--sol); color:#93c5fd;}
+  .le.done{border-color:var(--ok); color:#86efac;}
+  .le.active{outline:1px solid var(--cur);}
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:8px;}
+  .stat{background:var(--panel2); border-radius:8px; padding:8px; text-align:center;}
+  .stat b{display:block; font-size:1.2rem;}
+  .stat span{font-size:.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
+  #detail{font-size:.8rem; line-height:1.55; background:var(--panel2); border-radius:8px; padding:10px; min-height:60px;}
+  #detail .hl{color:var(--try); font-weight:700;}
+  .legend{display:flex; flex-wrap:wrap; gap:10px; font-size:.72rem; color:var(--muted);}
+  .legend i{width:11px; height:11px; border-radius:3px; display:inline-block; margin-right:4px; vertical-align:-1px;}
+  .sols{font-size:.78rem; font-family:ui-monospace,monospace; display:flex; flex-direction:column; gap:5px; max-height:180px; overflow-y:auto;}
+  .solitem{background:var(--panel2); border:1px solid var(--line); border-left:3px solid var(--sol); border-radius:6px; padding:6px 8px;}
+  @media (max-width:900px){ .col{flex:1 1 100%; } }
+</style>
+<!--<base target="_blank">--><base href="." target="_blank">
+</head>
+<body>
+<header>
+  <div>
+    <h1>🧩 Simulador CSP · Backtracking</h1>
+    <p>Asignar T1, T2, T3 entre Ana, Luis y Carlos · orden: Ana → Luis → Carlos · valores: T1 → T2 → T3</p>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--cur)"></i>Explorando</span>
+    <span><i style="background:var(--try)"></i>Probando valor</span>
+    <span><i style="background:var(--ok)"></i>Asignado</span>
+    <span><i style="background:var(--bad)"></i>Rama inválida</span>
+    <span><i style="background:var(--sol)"></i>Solución</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="col left">
+    <div class="card">
+      <h2>Variables y dominios</h2>
+      <div id="domains"><div class="person"><div class="pname"><span class="dot" style="background:#f472b6"></span>Ana <span style="color:var(--muted);font-weight:400">∈ {T1, T2, T3}</span></div><div class="chips"><span class="chip">T1</span><span class="chip">T2</span><span class="chip">T3</span></div></div><div class="person"><div class="pname"><span class="dot" style="background:#38bdf8"></span>Luis <span style="color:var(--muted);font-weight:400">∈ {T1, T2, T3}</span></div><div class="chips"><span class="chip">T1</span><span class="chip">T2</span><span class="chip">T3</span></div></div><div class="person"><div class="pname"><span class="dot" style="background:#fbbf24"></span>Carlos <span style="color:var(--muted);font-weight:400">∈ {T1, T2, T3}</span></div><div class="chips"><span class="chip">T1</span><span class="chip">T2</span><span class="chip">T3</span></div></div></div>
+    </div>
+    <div class="card">
+      <h2>Restricciones</h2>
+      <div id="constraints"><div class="restr"><span>Cada empleado realiza exactamente una tarea <span style="color:var(--muted)">(una asignación por variable)</span></span></div><div class="restr"><span>Ana ≠ Luis ≠ Carlos <span style="color:var(--muted)">(ninguna tarea a dos personas)</span></span></div><div class="restr"><span>Ana ∈ {T1, T2, T3} <span style="color:var(--muted)">(tareas permitidas)</span></span></div><div class="restr"><span>Luis ∈ {T1, T2, T3} <span style="color:var(--muted)">(tareas permitidas)</span></span></div><div class="restr"><span>Carlos ∈ {T1, T2, T3} <span style="color:var(--muted)">(tareas permitidas)</span></span></div><div class="restr"><span>Carlos ≠ T3 <span style="color:var(--muted)">(restricción adicional)</span></span><label class="switch"><input type="checkbox" id="tgOpt"><span class="slider"></span></label></div></div>
+    </div>
+    <div class="card">
+      <h2>Estadísticas del recorrido</h2>
+      <div class="stats">
+        <div class="stat"><b id="stSol">6</b><span>Soluciones</span></div>
+        <div class="stat"><b id="stBT">15</b><span>Backtracks</span></div>
+        <div class="stat"><b id="stPrune">0</b><span>Ramas podadas</span></div>
+        <div class="stat"><b id="stNodes">16</b><span>Nodos</span></div>
+      </div>
+      <p style="margin-top:10px;font-size:.75rem;color:var(--muted)">
+        Soluciones totales con la configuración actual: <b id="totalSol" style="color:var(--sol)">6</b>
+      </p>
+      <h2 style="margin-top:12px">Soluciones encontradas</h2>
+      <div class="sols" id="solList"><div class="solitem">Ana=T1, Luis=T2, Carlos=T3</div><div class="solitem">Ana=T1, Luis=T3, Carlos=T2</div><div class="solitem">Ana=T2, Luis=T1, Carlos=T3</div><div class="solitem">Ana=T2, Luis=T3, Carlos=T1</div><div class="solitem">Ana=T3, Luis=T1, Carlos=T2</div><div class="solitem">Ana=T3, Luis=T2, Carlos=T1</div></div>
+    </div>
+  </div>
+
+  <div class="col center">
+    <div class="card">
+      <h2>Controles</h2>
+      <div class="controls">
+        <button id="btnPrev">⏮ Paso atrás</button>
+        <button id="btnStep" class="primary" disabled="">Paso adelante ⏭</button>
+        <button id="btnPlay">▶ Automático</button>
+        <button id="btnReset">↺ Reiniciar</button>
+        <label style="font-size:.78rem;color:var(--muted)">Velocidad</label>
+        <input type="range" id="speed" min="1" max="10" value="4">
+      </div>
+      <div class="prog"><div id="progbar" style="width: 100%;"></div></div>
+    </div>
+    <div class="card">
+      <h2>Tablero de asignación</h2>
+      <table class="board">
+        <thead><tr><th>Empleado</th><th>T1</th><th>T2</th><th>T3</th></tr></thead>
+        <tbody id="board"><tr><td class="person-cell "><span class="dot" style="background:#f472b6"></span>Ana</td><td><span class="st libre">T1</span></td><td><span class="st libre">T2</span></td><td><span class="st libre">T3</span></td></tr><tr><td class="person-cell "><span class="dot" style="background:#38bdf8"></span>Luis</td><td><span class="st libre">T1</span></td><td><span class="st libre">T2</span></td><td><span class="st libre">T3</span></td></tr><tr><td class="person-cell "><span class="dot" style="background:#fbbf24"></span>Carlos</td><td><span class="st libre">T1</span></td><td><span class="st libre">T2</span></td><td><span class="st libre">T3</span></td></tr></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Árbol de búsqueda</h2>
+      <div class="treebox"><svg id="tree" width="100%" viewBox="0 0 650 260"><path d="M 325 37 C 325 56, 105 48, 105 67" class="tedge "></path><path d="M 105 89 C 105 108, 50 100, 50 119" class="tedge "></path><path d="M 50 141 C 50 160, 50 152, 50 171" class="tedge "></path><path d="M 105 89 C 105 108, 160 100, 160 119" class="tedge "></path><path d="M 160 141 C 160 160, 160 152, 160 171" class="tedge "></path><path d="M 325 37 C 325 56, 325 48, 325 67" class="tedge "></path><path d="M 325 89 C 325 108, 270 100, 270 119" class="tedge "></path><path d="M 270 141 C 270 160, 270 152, 270 171" class="tedge "></path><path d="M 325 89 C 325 108, 380 100, 380 119" class="tedge "></path><path d="M 380 141 C 380 160, 380 152, 380 171" class="tedge "></path><path d="M 325 37 C 325 56, 545 48, 545 67" class="tedge "></path><path d="M 545 89 C 545 108, 490 100, 490 119" class="tedge "></path><path d="M 490 141 C 490 160, 490 152, 490 171" class="tedge "></path><path d="M 545 89 C 545 108, 600 100, 600 119" class="tedge "></path><path d="M 600 141 C 600 160, 600 152, 600 171" class="tedge "></path><g class="tnode exploring"><circle cx="325" cy="26" r="11"></circle><text x="325" y="29.5" text-anchor="middle">∅</text><text x="325" y="10" text-anchor="middle" style="font-size:9px;fill:var(--muted)">raíz</text></g><g class="tnode dead"><circle cx="105" cy="78" r="11"></circle><text x="105" y="81.5" text-anchor="middle">T1</text><text x="105" y="62" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Ana</text></g><g class="tnode dead"><circle cx="50" cy="130" r="11"></circle><text x="50" y="133.5" text-anchor="middle">T2</text><text x="50" y="114" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Luis</text></g><g class="tnode dead"><circle cx="50" cy="182" r="11"></circle><text x="50" y="185.5" text-anchor="middle">T3</text><text x="50" y="166" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Carlos</text></g><g class="tnode dead"><circle cx="160" cy="130" r="11"></circle><text x="160" y="133.5" text-anchor="middle">T3</text><text x="160" y="114" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Luis</text></g><g class="tnode dead"><circle cx="160" cy="182" r="11"></circle><text x="160" y="185.5" text-anchor="middle">T2</text><text x="160" y="166" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Carlos</text></g><g class="tnode dead"><circle cx="325" cy="78" r="11"></circle><text x="325" y="81.5" text-anchor="middle">T2</text><text x="325" y="62" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Ana</text></g><g class="tnode dead"><circle cx="270" cy="130" r="11"></circle><text x="270" y="133.5" text-anchor="middle">T1</text><text x="270" y="114" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Luis</text></g><g class="tnode dead"><circle cx="270" cy="182" r="11"></circle><text x="270" y="185.5" text-anchor="middle">T3</text><text x="270" y="166" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Carlos</text></g><g class="tnode dead"><circle cx="380" cy="130" r="11"></circle><text x="380" y="133.5" text-anchor="middle">T3</text><text x="380" y="114" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Luis</text></g><g class="tnode dead"><circle cx="380" cy="182" r="11"></circle><text x="380" y="185.5" text-anchor="middle">T1</text><text x="380" y="166" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Carlos</text></g><g class="tnode dead"><circle cx="545" cy="78" r="11"></circle><text x="545" y="81.5" text-anchor="middle">T3</text><text x="545" y="62" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Ana</text></g><g class="tnode dead"><circle cx="490" cy="130" r="11"></circle><text x="490" y="133.5" text-anchor="middle">T1</text><text x="490" y="114" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Luis</text></g><g class="tnode dead"><circle cx="490" cy="182" r="11"></circle><text x="490" y="185.5" text-anchor="middle">T2</text><text x="490" y="166" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Carlos</text></g><g class="tnode dead"><circle cx="600" cy="130" r="11"></circle><text x="600" y="133.5" text-anchor="middle">T2</text><text x="600" y="114" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Luis</text></g><g class="tnode dead"><circle cx="600" cy="182" r="11"></circle><text x="600" y="185.5" text-anchor="middle">T1</text><text x="600" y="166" text-anchor="middle" style="font-size:9px;fill:var(--muted)">Carlos</text></g></svg></div>
+    </div>
+  </div>
+
+  <div class="col right">
+    <div class="card">
+      <h2>Detalle del paso <span id="stepNum">52</span>/<span id="stepTotal">52</span></h2>
+      <div id="detail"><span class="hl">FIN: 6 solución(es), 15 retrocesos, 0 ramas inválidas</span></div>
+    </div>
+    <div class="card">
+      <h2>Bitácora del algoritmo</h2>
+      <div id="log"><div class="le done">[0] Inicio: dominios iniciales (restricción Carlos ≠ T3 inactiva)</div><div class="le try">[1] Seleccionar variable Ana → ¿ Ana = T1 ?</div><div class="le try">[2] ✔ Ana=T1 asignado · se elimina T1 de los dominios de {Luis, Carlos}</div><div class="le try">[3] Seleccionar variable Luis → ¿ Luis = T2 ?</div><div class="le try">[4] ✔ Luis=T2 asignado · se elimina T2 de los dominios de {Carlos}</div><div class="le try">[5] Seleccionar variable Carlos → ¿ Carlos = T3 ?</div><div class="le try">[6] ✔ Carlos=T3 asignado · se elimina T3 de los dominios de {—}</div><div class="le sol">[7] ✔ Asignación completa y consistente → SOLUCIÓN #1: Ana=T1, Luis=T2, Carlos=T3</div><div class="le bt">[8] ↩ BACKTRACK: se revoca Carlos=T3 y se restauran los dominios para probar la siguiente alternativa</div><div class="le bt">[9] ↩ BACKTRACK: se revoca Luis=T2 y se restauran los dominios para probar la siguiente alternativa</div><div class="le try">[10] Seleccionar variable Luis → ¿ Luis = T3 ?</div><div class="le try">[11] ✔ Luis=T3 asignado · se elimina T3 de los dominios de {Carlos}</div><div class="le try">[12] Seleccionar variable Carlos → ¿ Carlos = T2 ?</div><div class="le try">[13] ✔ Carlos=T2 asignado · se elimina T2 de los dominios de {—}</div><div class="le sol">[14] ✔ Asignación completa y consistente → SOLUCIÓN #2: Ana=T1, Luis=T3, Carlos=T2</div><div class="le bt">[15] ↩ BACKTRACK: se revoca Carlos=T2 y se restauran los dominios para probar la siguiente alternativa</div><div class="le bt">[16] ↩ BACKTRACK: se revoca Luis=T3 y se restauran los dominios para probar la siguiente alternativa</div><div class="le bt">[17] ↩ BACKTRACK: se revoca Ana=T1 y se restauran los dominios para probar la siguiente alternativa</div><div class="le try">[18] Seleccionar variable Ana → ¿ Ana = T2 ?</div><div class="le try">[19] ✔ Ana=T2 asignado · se elimina T2 de los dominios de {Luis, Carlos}</div><div class="le try">[20] Seleccionar variable Luis → ¿ Luis = T1 ?</div><div class="le try">[21] ✔ Luis=T1 asignado · se elimina T1 de los dominios de {Carlos}</div><div class="le try">[22] Seleccionar variable Carlos → ¿ Carlos = T3 ?</div><div class="le try">[23] ✔ Carlos=T3 asignado · se elimina T3 de los dominios de {—}</div><div class="le sol">[24] ✔ Asignación completa y consistente → SOLUCIÓN #3: Ana=T2, Luis=T1, Carlos=T3</div><div class="le bt">[25] ↩ BACKTRACK: se revoca Carlos=T3 y se restauran los dominios para probar la siguiente alternativa</div><div class="le bt">[26] ↩ BACKTRACK: se revoca Luis=T1 y se restauran los dominios para probar la siguiente alternativa</div><div class="le try">[27] Seleccionar variable Luis → ¿ Luis = T3 ?</div><div class="le try">[28] ✔ Luis=T3 asignado · se elimina T3 de los dominios de {Carlos}</div><div class="le try">[29] Seleccionar variable Carlos → ¿ Carlos = T1 ?</div><div class="le try">[30] ✔ Carlos=T1 asignado · se elimina T1 de los dominios de {—}</div><div class="le sol">[31] ✔ Asignación completa y consistente → SOLUCIÓN #4: Ana=T2, Luis=T3, Carlos=T1</div><div class="le bt">[32] ↩ BACKTRACK: se revoca Carlos=T1 y se restauran los dominios para probar la siguiente alternativa</div><div class="le bt">[33] ↩ BACKTRACK: se revoca Luis=T3 y se restauran los dominios para probar la siguiente alternativa</div><div class="le bt">[34] ↩ BACKTRACK: se revoca Ana=T2 y se restauran los dominios para probar la siguiente alternativa</div><div class="le try">[35] Seleccionar variable Ana → ¿ Ana = T3 ?</div><div class="le try">[36] ✔ Ana=T3 asignado · se elimina T3 de los dominios de {Luis, Carlos}</div><div class="le try">[37] Seleccionar variable Luis → ¿ Luis = T1 ?</div><div class="le try">[38] ✔ Luis=T1 asignado · se elimina T1 de los dominios de {Carlos}</div><div class="le try">[39] Seleccionar variable Carlos → ¿ Carlos = T2 ?</div><div class="le try">[40] ✔ Carlos=T2 asignado · se elimina T2 de los dominios de {—}</div><div class="le sol">[41] ✔ Asignación completa y consistente → SOLUCIÓN #5: Ana=T3, Luis=T1, Carlos=T2</div><div class="le bt">[42] ↩ BACKTRACK: se revoca Carlos=T2 y se restauran los dominios para probar la siguiente alternativa</div><div class="le bt">[43] ↩ BACKTRACK: se revoca Luis=T1 y se restauran los dominios para probar la siguiente alternativa</div><div class="le try">[44] Seleccionar variable Luis → ¿ Luis = T2 ?</div><div class="le try">[45] ✔ Luis=T2 asignado · se elimina T2 de los dominios de {Carlos}</div><div class="le try">[46] Seleccionar variable Carlos → ¿ Carlos = T1 ?</div><div class="le try">[47] ✔ Carlos=T1 asignado · se elimina T1 de los dominios de {—}</div><div class="le sol">[48] ✔ Asignación completa y consistente → SOLUCIÓN #6: Ana=T3, Luis=T2, Carlos=T1</div><div class="le bt">[49] ↩ BACKTRACK: se revoca Carlos=T1 y se restauran los dominios para probar la siguiente alternativa</div><div class="le bt">[50] ↩ BACKTRACK: se revoca Luis=T2 y se restauran los dominios para probar la siguiente alternativa</div><div class="le bt">[51] ↩ BACKTRACK: se revoca Ana=T3 y se restauran los dominios para probar la siguiente alternativa</div><div class="le done active">[52] FIN: 6 solución(es), 15 retrocesos, 0 ramas inválidas</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= PROBLEMA =================
+   Variables: una por empleado. Dominio: tareas permitidas.
+   Orden de variables: Ana → Luis → Carlos (obligatorio)
+   Orden de valores: T1 → T2 → T3 (obligatorio)
+   Restricciones: cada empleado exactamente 1 tarea (una sola
+   asignación por variable) y cada tarea a una única persona
+   (all-different, generado automáticamente como pares ≠).   */
+const TAREAS = ['T1','T2','T3'];
+const PROBLEMA = {
+  variables: ['Ana','Luis','Carlos'],
+  dominios:  {Ana:['T1','T2','T3'], Luis:['T1','T2','T3'], Carlos:['T1','T2','T3']},
+  opcional:  {var:'Carlos', neq:'T3', etiqueta:'Carlos ≠ T3'},
+  colores:   {Ana:'#f472b6', Luis:'#38bdf8', Carlos:'#fbbf24'}
+};
+
+/* ================= GENERACIÓN DE LA TRAZA ================= */
+function generarTraza(conOpcional){
+  const V = PROBLEMA.variables;
+  const un = conOpcional ? [{var:PROBLEMA.opcional.var, neq:PROBLEMA.opcional.neq}] : [];
+  const bin = [];
+  for(let i=0;i<V.length;i++) for(let j=i+1;j<V.length;j++) bin.push({a:V[i], neq:V[j]});
+  const eventos = [];
+  let sols=0, bts=0, prunes=0, nid=0;
+  const nodos = {};
+  const raiz = ++nid; nodos[raiz]={id:raiz,padre:null,etiqueta:'∅',prof:0};
+  const nodoPila=[raiz];
+  const domIni={}; V.forEach(v=>domIni[v]=PROBLEMA.dominios[v].filter(t=>!un.some(r=>r.var===v&&r.neq===t)));
+  let dom=JSON.parse(JSON.stringify(domIni)), asig={};
+
+  const snap=()=>JSON.parse(JSON.stringify({dominios:dom, asig}));
+
+  function backtrack(i){
+    if(i===V.length){
+      sols++;
+      eventos.push({tipo:'solution', msg:`✔ Asignación completa y consistente → SOLUCIÓN #${sols}: `+V.map(v=>`${v}=${asig[v]}`).join(', '), snap:snap()});
+      return;
+    }
+    const v=V[i];
+    for(const val of [...dom[v]]){
+      const nodo=++nid;
+      nodos[nodo]={id:nodo,padre:nodoPila[i],etiqueta:`${v}=${val}`,prof:i+1};
+      eventos.push({tipo:'try', var:v, val, nodo, msg:`Seleccionar variable ${v} → ¿ ${v} = ${val} ?`, snap:snap()});
+      // comprobar restricciones con la asignación parcial
+      let conflictos=[];
+      for(const b of bin){
+        const otro = b.a===v ? b.b : (b.neq===v ? b.a : null);
+        if(otro && asig[otro]!==undefined && asig[otro]===val)
+          conflictos.push(`${b.a} ≠ ${b.neq} (ya ${otro}=${val})`);
+      }
+      if(conflictos.length){
+        prunes++;
+        eventos.push({tipo:'reject', var:v, val, nodo, msg:`✘ ${v}=${val} incumple la restricción ${conflictos[0]} → rama inválida`, snap:snap()});
+        continue;
+      }
+      // asignar + forward checking (paso 3 del procedimiento)
+      const antes=JSON.parse(JSON.stringify(dom));
+      asig[v]=val; dom[v]=[val];
+      const eliminados=[];
+      let wipe=null;
+      for(const u of V) if(u!==v && dom[u].includes(val)){
+        dom[u]=dom[u].filter(t=>t!==val); eliminados.push(u);
+        if(dom[u].length===0) wipe=u;
+      }
+      eventos.push({tipo:'assign', var:v, val, nodo, antes, eliminados,
+        msg:`✔ ${v}=${val} asignado · se elimina ${val} de los dominios de {${eliminados.join(', ')||'—'}}`,
+        snap:snap()});
+      nodoPila.push(nodo);
+      if(wipe){
+        prunes++;
+        eventos.push({tipo:'wipeout', var:v, val, nodo, wipe,
+          msg:`⚠ El dominio de ${wipe} quedó VACÍO { } → la rama ${v}=${val} no puede producir solución`,
+          snap:snap()});
+      } else {
+        backtrack(i+1);
+      }
+      // retroceso: revocar y restaurar dominios
+      delete asig[v]; dom=antes; nodoPila.pop();
+      nodos[nodo].estado='dead';
+      bts++;
+      eventos.push({tipo:'backtrack', var:v, val, nodo,
+        msg:`↩ BACKTRACK: se revoca ${v}=${val} y se restauran los dominios para probar la siguiente alternativa`,
+        snap:snap()});
+    }
+  }
+  eventos.push({tipo:'start', msg:'Inicio: dominios iniciales (restricción Carlos ≠ T3 '+(conOpcional?'ACTIVA':'inactiva')+')', snap:snap()});
+  backtrack(0);
+  eventos.push({tipo:'done', msg:`FIN: ${sols} solución(es), ${bts} retrocesos, ${prunes} ramas inválidas`, snap:snap()});
+  return {eventos, nodos, raiz, totalSol:sols, stats:{sols,bts,prunes,nodes:nid}};
+}
+
+/* ================= ESTADO GLOBAL ================= */
+let traza=null, paso=0, timer=null, conOpcional=false;
+
+function rebuild(){
+  traza=generarTraza(conOpcional);
+  paso=0;
+  $('stepTotal').textContent=traza.eventos.length-1;
+  $('totalSol').textContent=traza.totalSol;
+  renderConstraints(); renderAll();
+}
+const $=id=>document.getElementById(id);
+
+function renderConstraints(){
+  const box=$('constraints'); box.innerHTML='';
+  const d0=document.createElement('div'); d0.className='restr';
+  d0.innerHTML=`<span>Cada empleado realiza exactamente una tarea <span style="color:var(--muted)">(una asignación por variable)</span></span>`;
+  box.appendChild(d0);
+  const d1=document.createElement('div'); d1.className='restr';
+  d1.innerHTML=`<span>${PROBLEMA.variables.join(' ≠ ')} <span style="color:var(--muted)">(ninguna tarea a dos personas)</span></span>`;
+  box.appendChild(d1);
+  PROBLEMA.variables.forEach(v=>{
+    const d=document.createElement('div'); d.className='restr';
+    d.innerHTML=`<span>${v} ∈ {${PROBLEMA.dominios[v].join(', ')}} <span style="color:var(--muted)">(tareas permitidas)</span></span>`;
+    box.appendChild(d);
+  });
+  const d2=document.createElement('div'); d2.className='restr';
+  const lab=document.createElement('label'); lab.className='switch';
+  lab.innerHTML=`<input type="checkbox" id="tgOpt" ${conOpcional?'checked':''}><span class="slider"></span>`;
+  d2.innerHTML=`<span>Carlos ≠ T3 <span style="color:var(--muted)">(restricción adicional)</span></span>`;
+  d2.appendChild(lab); box.appendChild(d2);
+  d2.querySelector('input').addEventListener('change', e=>{ conOpcional=e.target.checked; rebuild(); });
+}
+
+function estadoNodosHasta(k){
+  const st={};
+  for(const id in traza.nodos) st[id]='pending';
+  st[traza.raiz]='exploring';
+  for(let i=1;i<=k;i++){
+    const e=traza.eventos[i]; if(!e||!e.nodo) continue;
+    if(e.tipo==='try') st[e.nodo]='exploring';
+    if(e.tipo==='reject'||e.tipo==='wipeout') st[e.nodo]='pruned';
+    if(e.tipo==='backtrack') st[e.nodo]='dead';
+  }
+  const e=traza.eventos[k];
+  if(e&&e.tipo==='solution'){ // marcar camino actual como solución
+    let n=e; // resaltar último nodo asignado
+    for(let i=k;i>0;i--){ const ev=traza.eventos[i];
+      if(ev.nodo && st[ev.nodo]==='dead' && ev.tipo==='assign'){ st[ev.nodo]='solution'; break; } }
+  }
+  return st;
+}
+
+function renderAll(){
+  const ev=traza.eventos, k=Math.min(paso,ev.length-1), e=ev[k];
+  $('stepNum').textContent=k;
+  $('progbar').style.width=(k/(ev.length-1)*100)+'%';
+  renderBoard(e); renderTree(k); renderDetail(e);
+  let s=0,b=0,p=0; const sols=[];
+  for(let i=1;i<=k;i++){const t=ev[i].tipo;
+    if(t==='solution'){s++; sols.push(ev[i].msg.match(/SOLUCIÓN #\d+: (.+)/)[1]);}
+    if(t==='backtrack')b++; if(t==='reject'||t==='wipeout')p++;}
+  $('stSol').textContent=s; $('stBT').textContent=b; $('stPrune').textContent=p; $('stNodes').textContent=traza.stats.nodes;
+  const sl=$('solList'); sl.innerHTML = sols.length? '' : '<span style="color:var(--muted)">Aún no se explora…</span>';
+  sols.forEach(txt=>{ const d=document.createElement('div'); d.className='solitem'; d.textContent=txt; sl.appendChild(d); });
+  $('btnPrev').disabled=k<=0; $('btnStep').disabled=k>=ev.length-1;
+  renderLog(k);
+}
+
+function renderBoard(e){
+  const V=PROBLEMA.variables, snap=e.snap;
+  const tb=$('board'); tb.innerHTML='';
+  const domBox=$('domains'); domBox.innerHTML='';
+  V.forEach(v=>{
+    const cur=e.var===v;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="person-cell ${cur?'cur':''}"><span class="dot" style="background:${PROBLEMA.colores[v]}"></span>${v}${snap.asig[v]?` = <b style="color:var(--ok)">${snap.asig[v]}</b>`:''}</td>`;
+    TAREAS.forEach(t=>{
+      const td=document.createElement('td');
+      const enDom=snap.dominios[v].includes(t);
+      const asig=snap.asig[v]===t;
+      const prob=cur&&e.val===t;
+      let cls='libre', txt=t;
+      if(asig){cls='asig'; txt='✔ '+t;}
+      else if(prob&&e.tipo==='reject'){cls='conf'; txt='✘ '+t;}
+      else if(prob&&e.tipo==='try'){cls='prueba'; txt='? '+t;}
+      else if(!enDom) cls='fuera';
+      td.innerHTML=`<span class="st ${cls}">${txt}</span>`;
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+    const dv=document.createElement('div'); dv.className='person';
+    dv.innerHTML=`<div class="pname"><span class="dot" style="background:${PROBLEMA.colores[v]}"></span>${v} <span style="color:var(--muted);font-weight:400">∈ {${snap.dominios[v].join(', ')||'∅'}}</span></div>`;
+    const ch=document.createElement('div'); ch.className='chips';
+    PROBLEMA.dominios[v].forEach(t=>{
+      const c=document.createElement('span'); c.className='chip';
+      if(!snap.dominios[v].includes(t)) c.classList.add('out');
+      if(cur&&e.val===t&&e.tipo==='try') c.classList.add('try');
+      if(snap.asig[v]===t) c.classList.add('ok');
+      if(cur&&e.val===t&&(e.tipo==='reject'||e.tipo==='wipeout')) c.classList.add('bad');
+      c.textContent=t; ch.appendChild(c);
+    });
+    dv.appendChild(ch); domBox.appendChild(dv);
+  });
+}
+
+function renderTree(k){
+  const svg=$('tree'); const st=estadoNodosHasta(k);
+  const NS='http://www.w3.org/2000/svg';
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  const nodos=Object.values(traza.nodos).filter(n=>st[n.id]!=='pending');
+  const hijos={}; nodos.forEach(n=>{ (hijos[n.padre||0]=hijos[n.padre||0]||[]).push(n); });
+  const pos={}; let x=0; const H=52, W=110, TOP=26, LEFT=50;
+  (function layout(n){
+    const hs=hijos[n.id]||[];
+    if(!hs.length){ pos[n.id]={x:x++}; return; }
+    hs.forEach(layout);
+    pos[n.id]={x:(pos[hs[0].id].x+pos[hs[hs.length-1].id].x)/2};
+  })(traza.nodos[traza.raiz]);
+  const maxX=Math.max(...Object.values(pos).map(p=>p.x),1);
+  svg.setAttribute('viewBox',`0 0 ${Math.max(maxX*W+2*LEFT,320)} ${4*H+2*TOP}`);
+  nodos.forEach(n=>{
+    if(n.padre&&pos[n.padre]){
+      const l=document.createElementNS(NS,'path');
+      const x1=pos[n.padre].x*W+LEFT, y1=traza.nodos[n.padre].prof*H+TOP;
+      const x2=pos[n.id].x*W+LEFT, y2=n.prof*H+TOP;
+      l.setAttribute('d',`M ${x1} ${y1+11} C ${x1} ${y1+30}, ${x2} ${y2-30}, ${x2} ${y2-11}`);
+      l.setAttribute('class','tedge '+(st[n.id]==='pruned'?'no':st[n.id]==='solution'?'yes':''));
+      svg.appendChild(l);
+    }
+  });
+  nodos.forEach(n=>{
+    const g=document.createElementNS(NS,'g'); g.setAttribute('class','tnode '+st[n.id]);
+    const cx=pos[n.id].x*W+LEFT, cy=n.prof*H+TOP;
+    const c=document.createElementNS(NS,'circle');
+    c.setAttribute('cx',cx); c.setAttribute('cy',cy); c.setAttribute('r',11); g.appendChild(c);
+    const t=document.createElementNS(NS,'text');
+    t.setAttribute('x',cx); t.setAttribute('y',cy+3.5); t.setAttribute('text-anchor','middle');
+    t.textContent=n.id===traza.raiz?'∅':n.etiqueta.split('=')[1]; g.appendChild(t);
+    const t2=document.createElementNS(NS,'text');
+    t2.setAttribute('x',cx); t2.setAttribute('y',cy-16); t2.setAttribute('text-anchor','middle');
+    t2.setAttribute('style','font-size:9px;fill:var(--muted)');
+    t2.textContent=n.id===traza.raiz?'raíz':n.etiqueta.split('=')[0]; g.appendChild(t2);
+    svg.appendChild(g);
+  });
+}
+
+function renderDetail(e){
+  let html=`<span class="hl">${e.msg}</span>`;
+  if(e.antes){
+    html+=`<br><br><b>Dominios antes:</b><br>`+PROBLEMA.variables.map(v=>`${v}: {${e.antes[v].join(', ')||'∅'}}`).join(' · ');
+    html+=`<br><b>Dominios después:</b><br>`+PROBLEMA.variables.map(v=>`${v}: {${e.snap.dominios[v].join(', ')||'∅'}}`).join(' · ');
+  }
+  if(e.tipo==='wipeout') html+=`<br><b>Dominio vacío en:</b> ${e.wipe}`;
+  $('detail').innerHTML=html;
+}
+
+function renderLog(k){
+  const l=$('log'); l.innerHTML='';
+  const tipos={try:'try',reject:'prune',assign:'try',wipeout:'prune',backtrack:'bt',solution:'sol',done:'done',start:'done'};
+  for(let i=0;i<=k;i++){
+    const e=traza.eventos[i];
+    const d=document.createElement('div');
+    d.className='le '+tipos[e.tipo]; d.textContent=`[${i}] ${e.msg}`;
+    if(i===k) d.classList.add('active');
+    l.appendChild(d);
+  }
+  l.scrollTop=l.scrollHeight;
+}
+
+/* ================= CONTROLES ================= */
+$('btnStep').onclick=()=>{ if(paso<traza.eventos.length-1){paso++; renderAll();} };
+$('btnPrev').onclick=()=>{ if(paso>0){paso--; renderAll();} };
+$('btnReset').onclick=()=>{ stop(); paso=0; renderAll(); };
+$('btnPlay').onclick=()=>{
+  if(timer){ stop(); return; }
+  $('btnPlay').textContent='⏸ Pausar';
+  timer=setInterval(()=>{
+    if(paso>=traza.eventos.length-1){ stop(); return; }
+    paso++; renderAll();
+  }, 1250 - $('speed').value*115);
+};
+function stop(){ clearInterval(timer); timer=null; $('btnPlay').textContent='▶ Automático'; }
+
+rebuild();
+</script>
+
+</body></html>
